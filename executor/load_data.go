@@ -34,6 +34,7 @@ import (
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/hack"
 	"github.com/pingcap/tidb/util/logutil"
+	"github.com/pingcap/tidb/util/sqlexec"
 	"go.uber.org/zap"
 )
 
@@ -41,6 +42,149 @@ var (
 	null          = []byte("NULL")
 	taskQueueSize = 16 // the maximum number of pending tasks to commit in queue
 )
+
+// LoadDataExec represents a load data executor.
+type LoadDataExecCompressed struct {
+	baseExecutor
+
+	IsLocal      bool
+	OnDuplicate  ast.OnDuplicateKeyHandlingType
+	loadDataInfo *LoadDataInfo
+	recordID     uint64
+}
+
+func (e *LoadDataExecCompressed) Open(ctx context.Context) error {
+	var err error
+	err, e.recordID = e.addTask(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *LoadDataExecCompressed) Next(ctx context.Context, req *chunk.Chunk) error {
+	for {
+		time.Sleep(time.Second * 5)
+		err, ts := e.waitTaskEnd(ctx)
+		if err != nil {
+			return err
+		}
+		if ts {
+			break
+		}
+	}
+	return nil
+}
+
+func (e *LoadDataExecCompressed) Close() error {
+
+	return nil
+}
+
+func (e *LoadDataExecCompressed) getRecordStatus(ctx context.Context,
+	sqlExecutor sqlexec.SQLExecutor) (error, bool) {
+	sql := new(strings.Builder)
+	sql.Reset()
+	sqlexec.MustFormatSQL(sql, "select live_time,response from  mysql.tidb_external_task ...")
+	rs, err := sqlExecutor.ExecuteInternal(ctx, sql.String())
+	if err != nil {
+		logutil.BgLogger().Error(fmt.Sprintf("Error occur when executing %s", sql))
+		return err, false
+	}
+	if err != nil {
+		return err, false
+	}
+	defer func() {
+		if closeErr := rs.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
+	req := rs.NewChunk(nil)
+	iter := chunk.NewIterator4Chunk(req)
+	err = rs.Next(ctx, req)
+	if err != nil {
+		return err, false
+	}
+	if req.NumRows() == 0 {
+		return fmt.Errorf("load data task %v not found", e.recordID), false
+	}
+	row := iter.Begin()
+	//get LiveTime
+	if !row.IsNull(0) {
+		//passwordLockingJSON := row.GetJSON(0)
+		//return passwordLocking, passwordLocking.ParseJSON(passwordLockingJSON)
+		lastLiveTimeStr := row.GetString(0)
+		lastLiveTime, err := time.Parse("2006-01-02 15:04:05", lastLiveTimeStr)
+		if err != nil {
+			return err, false
+		}
+		// If no keepalive information is written within 20 minutes,
+		//the task is considered to have timed out
+		if time.Since(lastLiveTime) > 20*time.Minute {
+			return fmt.Errorf("load data task %v keep alive timed out", e.recordID), true
+		}
+	}
+	//get response
+	if !row.IsNull(1) {
+		res := row.GetJSON(1)
+		fmt.Println(res)
+		//parse res and return task status
+	}
+	return nil, true
+}
+
+func (e *LoadDataExecCompressed) waitTaskEnd(ctx context.Context) (error, bool) {
+	sysSession, err := e.getSysSession()
+	if err != nil {
+		return err, false
+	}
+	defer e.releaseSysSession(ctx, sysSession)
+	sqlExecutor := sysSession.(sqlexec.SQLExecutor)
+	if _, err := sqlExecutor.ExecuteInternal(ctx, "BEGIN PESSIMISTIC"); err != nil {
+		return err, false
+	}
+	err, taskStatus := e.getRecordStatus(ctx, sqlExecutor)
+	if err != nil {
+		/*
+			if _, rollbackErr := sqlExecutor.ExecuteInternal(ctx, "rollback"); rollbackErr != nil {
+				return rollbackErr, false
+			}
+		*/
+		return err, false
+	}
+	if _, err := sqlExecutor.ExecuteInternal(ctx, "commit"); err != nil {
+		return err, false
+	}
+	return nil, taskStatus
+}
+
+func (e *LoadDataExecCompressed) addTask(ctx context.Context) (error, uint64) {
+	sysSession, err := e.getSysSession()
+	if err != nil {
+		return err, 0
+	}
+	defer e.releaseSysSession(ctx, sysSession)
+	sqlExecutor := sysSession.(sqlexec.SQLExecutor)
+	if _, err := sqlExecutor.ExecuteInternal(ctx, "BEGIN PESSIMISTIC"); err != nil {
+		return err, 0
+	}
+	sql := new(strings.Builder)
+	sql.Reset()
+	sqlexec.MustFormatSQL(sql, "insert into mysql.tidb_external_task ...")
+	if _, err := sqlExecutor.ExecuteInternal(ctx, sql.String()); err != nil {
+		logutil.BgLogger().Error(fmt.Sprintf("Error occur when executing %s", sql))
+		/*
+			if _, rollbackErr := sqlExecutor.ExecuteInternal(ctx, "rollback"); rollbackErr != nil {
+				return rollbackErr, 0
+			}
+		*/
+		return err, 0
+	}
+	if _, err := sqlExecutor.ExecuteInternal(ctx, "commit"); err != nil {
+		return err, 0
+	}
+	return nil, sysSession.GetSessionVars().StmtCtx.LastInsertID
+}
 
 // LoadDataExec represents a load data executor.
 type LoadDataExec struct {
