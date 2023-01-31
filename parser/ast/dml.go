@@ -291,18 +291,18 @@ func (n *TableName) restoreName(ctx *format.RestoreCtx) {
 	if !ctx.Flags.HasWithoutSchemaNameFlag() {
 		// restore db name
 		if n.Schema.String() != "" {
-			ctx.WriteName(n.Schema.String())
+			ctx.WriteName(stringDesensitization(n.Schema.String()))
 			ctx.WritePlain(".")
 		} else if ctx.DefaultDB != "" {
 			// Try CTE, for a CTE table name, we shouldn't write the database name.
 			if !ctx.IsCTETableName(n.Name.L) {
-				ctx.WriteName(ctx.DefaultDB)
+				ctx.WriteName(stringDesensitization(ctx.DefaultDB))
 				ctx.WritePlain(".")
 			}
 		}
 	}
 	// restore table name
-	ctx.WriteName(n.Name.String())
+	ctx.WriteName(stringDesensitization(n.Name.String()))
 }
 
 func (n *TableName) restorePartitions(ctx *format.RestoreCtx) {
@@ -313,7 +313,7 @@ func (n *TableName) restorePartitions(ctx *format.RestoreCtx) {
 			if i != 0 {
 				ctx.WritePlain(", ")
 			}
-			ctx.WriteName(v.String())
+			ctx.WriteName(stringDesensitization(v.String()))
 		}
 		ctx.WritePlain(")")
 	}

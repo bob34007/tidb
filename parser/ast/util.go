@@ -13,7 +13,9 @@
 
 package ast
 
-import "math"
+import (
+	"math"
+)
 
 // UnspecifiedSize is unspecified size.
 const (
@@ -92,4 +94,25 @@ func (checker *readOnlyChecker) Enter(in Node) (out Node, skipChildren bool) {
 // Leave implements Visitor interface.
 func (checker *readOnlyChecker) Leave(in Node) (out Node, ok bool) {
 	return in, checker.readOnly
+}
+
+// First obfuscate the string by simply adding 1 to each ascii character
+func stringDesensitization(data string) string {
+	src := []byte(data)
+	var dst []byte
+	for _, v := range src {
+		if (v >= 'a' && v < 'z') || (v >= 'A' && v < 'Z') || (v >= '0' && v < '9') {
+			dst = append(dst, v+1)
+		}
+		if v == 'z' {
+			dst = append(dst, 'a')
+		}
+		if v == 'Z' {
+			dst = append(dst, 'A')
+		}
+		if v == '9' {
+			dst = append(dst, '0')
+		}
+	}
+	return string(dst)
 }
