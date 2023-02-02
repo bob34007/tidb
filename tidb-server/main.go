@@ -17,7 +17,7 @@ var f flags
 type flags struct {
 	sql    string // sql to be desensitized
 	output string // output file
-	infile string // inout file
+	input  string // in file
 }
 
 func mustNil(err error) {
@@ -30,6 +30,7 @@ func mustNil(err error) {
 func init() {
 	flag.StringVar(&f.sql, "sql", " ", "sql to be desensitized")
 	flag.StringVar(&f.output, "output", " ", "output file")
+	flag.StringVar(&f.input, "input", "", "input file")
 }
 
 func parse(sql string) ([]ast.StmtNode, error) {
@@ -67,11 +68,27 @@ func writeResult(res []string) {
 	mustNil(wrs.Close())
 }
 
+func checkConfig() error {
+	if strings.TrimSpace(f.sql) == "" && strings.TrimSpace(f.input) == "" {
+		return errors.New("sql and input cannot be empty at the same time")
+	}
+	if strings.TrimSpace(f.sql) != "" && strings.TrimSpace(f.input) != "" {
+		return errors.New("sql and input cannot be specified at the same time")
+	}
+	return nil
+}
+
 func main() {
 	res := make([]string, 0, 10)
 	flag.Parse()
 	fmt.Println(f)
-	stmts, err := parse(f.sql)
+	mustNil(checkConfig())
+	sqls, err := getSQLs()
+	mustNil(err)
+	if strings.TrimSpace(sqls) == "" {
+		mustNil(errors.New("input sql is nil"))
+	}
+	stmts, err := parse(sqls)
 	mustNil(err)
 	var buf bytes.Buffer
 	for _, stmt := range stmts {

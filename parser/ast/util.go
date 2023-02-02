@@ -103,15 +103,14 @@ func stringDesensitization(data string) string {
 	for _, v := range src {
 		if (v >= 'a' && v < 'z') || (v >= 'A' && v < 'Z') || (v >= '0' && v < '9') {
 			dst = append(dst, v+1)
-		}
-		if v == 'z' {
+		} else if v == 'z' {
 			dst = append(dst, 'a')
-		}
-		if v == 'Z' {
+		} else if v == 'Z' {
 			dst = append(dst, 'A')
-		}
-		if v == '9' {
+		} else if v == '9' {
 			dst = append(dst, '0')
+		} else {
+			dst = append(dst, v)
 		}
 	}
 	return string(dst)
