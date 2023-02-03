@@ -3907,7 +3907,7 @@ func (n *PartitionDefinition) acceptInPlace(v Visitor) bool {
 // Restore implements Node interface.
 func (n *PartitionDefinition) Restore(ctx *format.RestoreCtx) error {
 	ctx.WriteKeyWord("PARTITION ")
-	ctx.WriteName(n.Name.O)
+	ctx.WriteName(stringDesensitization(n.Name.O))
 
 	if err := n.Clause.restore(ctx); err != nil {
 		return errors.Annotate(err, "An error occurred while restore PartitionDefinition.Clause")

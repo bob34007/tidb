@@ -550,7 +550,7 @@ func (n *TableSource) Restore(ctx *format.RestoreCtx) error {
 
 		if asName := n.AsName.String(); asName != "" {
 			ctx.WriteKeyWord(" AS ")
-			ctx.WriteName(asName)
+			ctx.WriteName(stringDesensitization(asName))
 		}
 
 		if tn.AsOf != nil {
@@ -584,7 +584,7 @@ func (n *TableSource) Restore(ctx *format.RestoreCtx) error {
 		}
 		if asName := n.AsName.String(); asName != "" {
 			ctx.WriteKeyWord(" AS ")
-			ctx.WriteName(asName)
+			ctx.WriteName(stringDesensitization(asName))
 		}
 	}
 
@@ -718,7 +718,7 @@ func (n *SelectField) Restore(ctx *format.RestoreCtx) error {
 	}
 	if asName := n.AsName.String(); asName != "" {
 		ctx.WriteKeyWord(" AS ")
-		ctx.WriteName(asName)
+		ctx.WriteName(stringDesensitization(asName))
 	}
 	return nil
 }

@@ -517,7 +517,7 @@ func (n *ColumnName) Restore(ctx *format.RestoreCtx) error {
 		ctx.WritePlain(".")
 	}
 	if n.Table.O != "" && !ctx.Flags.HasWithoutTableNameFlag() {
-		ctx.WriteName(n.Table.O)
+		ctx.WriteName(stringDesensitization(n.Table.O))
 		ctx.WritePlain(".")
 	}
 	ctx.WriteName(stringDesensitization((n.Name.O)))
@@ -538,10 +538,10 @@ func (n *ColumnName) Accept(v Visitor) (Node, bool) {
 func (n *ColumnName) String() string {
 	result := n.Name.L
 	if n.Table.L != "" {
-		result = n.Table.L + "." + result
+		result = stringDesensitization(n.Table.L) + "." + result
 	}
 	if n.Schema.L != "" {
-		result = n.Schema.L + "." + result
+		result = stringDesensitization(n.Schema.L) + "." + result
 	}
 	return result
 }
