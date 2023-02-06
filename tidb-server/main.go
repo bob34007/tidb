@@ -15,12 +15,13 @@ import (
 var f flags
 
 type flags struct {
-	sql    string // sql to be desensitized
-	output string // output file
-	input  string // in file
-	dsn    string // MySQL DSN
-	db     string //database name
-	tables string //table name list
+	sql       string // sql to be desensitized
+	output    string // output file
+	input     string // in file
+	dsn       string // MySQL DSN
+	db        string //database name
+	tables    string //table name list
+	lowerCase string // lower case table name
 }
 
 func mustNil(err error) {
@@ -37,6 +38,7 @@ func init() {
 	flag.StringVar(&f.dsn, "dsn", "", "mysql dsn")
 	flag.StringVar(&f.db, "db", "", "database name")
 	flag.StringVar(&f.tables, "tables", "", "table  list")
+	flag.StringVar(&f.lowerCase, "lowercase", "N", "lower case table name")
 }
 
 func parse(sql string) ([]ast.StmtNode, error) {
@@ -78,6 +80,12 @@ func checkConfig() error {
 	f.sql = strings.TrimSpace(f.sql)
 	f.input = strings.TrimSpace(f.input)
 	f.dsn = strings.TrimSpace(f.dsn)
+	f.lowerCase = strings.ToUpper(strings.TrimSpace(f.lowerCase))
+	if f.lowerCase == "" {
+		f.lowerCase = "N"
+	} else if f.lowerCase != "Y" && f.lowerCase != "N" {
+		return errors.New("lower case not in N/Y")
+	}
 	if f.sql == "" && f.input == "" && f.dsn == "" {
 		return errors.New("sql and input and dsn cannot be empty at the same time")
 	}
@@ -103,16 +111,20 @@ func newgetPrams() getPrams {
 		} else {
 			fmt.Println("sql in db")
 			var tabs []string
+			needCheckTabName := false
 			if strings.TrimSpace(f.tables) != "" {
+				needCheckTabName = true
 				tabs = strings.Split(strings.TrimSpace(f.tables), ",")
 			} else {
 				tabs = make([]string, 0, 10)
 			}
 			return &DBInput{
-				sqls:   make([]string, 0, 10),
-				dsn:    strings.TrimSpace(f.dsn),
-				dbName: strings.TrimSpace(f.db),
-				tables: tabs,
+				sqls:             make([]string, 0, 10),
+				dsn:              strings.TrimSpace(f.dsn),
+				dbName:           strings.TrimSpace(f.db),
+				tables:           tabs,
+				lowerCase:        f.lowerCase,
+				needCheckTabName: needCheckTabName,
 			}
 		}
 	}
