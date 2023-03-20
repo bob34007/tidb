@@ -590,10 +590,10 @@ func (n *ColumnOption) Restore(ctx *format.RestoreCtx) error {
 	case ColumnOptionFulltext:
 		return errors.New("TiDB Parser ignore the `ColumnOptionFulltext` type now")
 	case ColumnOptionComment:
-		ctx.WriteKeyWord("COMMENT ")
+		/*ctx.WriteKeyWord("COMMENT ")
 		if err := n.Expr.Restore(ctx); err != nil {
 			return errors.Annotate(err, "An error occurred while splicing ColumnOption COMMENT Expr")
-		}
+		}*/
 	case ColumnOptionGenerated:
 		ctx.WriteKeyWord("GENERATED ALWAYS AS")
 		ctx.WritePlain("(")

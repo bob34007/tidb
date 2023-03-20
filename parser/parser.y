@@ -10795,7 +10795,7 @@ ShowStmt:
 |	"SHOW" "CREATE" "RESOURCE" "GROUP" ResourceGroupName
 	{
 		$$ = &ast.ShowStmt{
-			Tp:     ast.ShowCreateResourceGroup,
+			Tp:                ast.ShowCreateResourceGroup,
 			ResourceGroupName: $5,
 		}
 	}
